@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard OKR - Fila 3</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+    <header class="dashboard-header">
+        <h1>Dashboard Estratégico de OKRs</h1>
+        <div class="upload-container">
+            <input type="file" id="excel-upload" accept=".xlsx, .xls" hidden />
+            <label for="excel-upload" class="btn-upload">📂 Cargar Archivo Excel</label>
+        </div>
+    </header>
+    <div id="global-stats-container"></div>
+    <main class="dashboard-container">
+        <aside class="filters-sidebar">
+            <h3>🔍 Filtros Globales</h3>
+            <div id="dynamic-filters"></div>
+            <button onclick="clearFilters()" style="margin-top: 15px; width: 100%; padding: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; color: #475569; font-weight: bold; cursor: pointer; transition: background 0.2s;">
+    🔄 Limpiar Filtros
+            </button>
+        </aside>
+
+        <section class="content-area">
+            <div id="okr-list-container">
+                <div class="empty-state">
+                    <p>Por favor, carga el Excel con encabezados en la fila 3.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
