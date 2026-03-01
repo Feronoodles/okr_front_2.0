@@ -1,39 +1,399 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard OKR - Fila 3</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>OKR Dashboard - Spring Boot Integration</title>
+    <meta name="description" content="Dashboard de gestión de OKRs con integración a Spring Boot">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <header class="dashboard-header">
-        <h1>Dashboard Estratégico de OKRs</h1>
-        <div class="upload-container">
-            <input type="file" id="excel-upload" accept=".xlsx, .xls" hidden />
-            <label for="excel-upload" class="btn-upload">📂 Cargar Archivo Excel</label>
-        </div>
-    </header>
-    <div id="global-stats-container"></div>
-    <main class="dashboard-container">
-        <aside class="filters-sidebar">
-            <h3>🔍 Filtros Globales</h3>
-            <div id="dynamic-filters"></div>
-            <button onclick="clearFilters()" style="margin-top: 15px; width: 100%; padding: 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; color: #475569; font-weight: bold; cursor: pointer; transition: background 0.2s;">
-    🔄 Limpiar Filtros
-            </button>
-        </aside>
 
-        <section class="content-area">
-            <div id="okr-list-container">
-                <div class="empty-state">
-                    <p>Por favor, carga el Excel con encabezados en la fila 3.</p>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Procesando datos...</p>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <div class="brand">
+                <h1>OKR Strat-Master</h1>
+                <p id="auth-status">Modo Lectura</p>
+            </div>
+
+            <div id="login-form" class="auth-box">
+                <div class="login-group">
+                    <span class="input-icon">👤</span>
+                    <input type="text" id="username" placeholder="Correo electrónico">
                 </div>
+                <div class="login-group">
+                    <span class="input-icon">🔒</span>
+                    <input type="password" id="password" placeholder="Contraseña"
+                        onkeydown="if(event.key==='Enter') handleLogin()">
+                </div>
+                <button onclick="handleLogin()" class="btn-login">Iniciar Sesión</button>
+            </div>
+
+            <div id="admin-logged" class="auth-box" style="display: none;">
+                <div class="admin-user-badge">
+                    <span class="admin-avatar">🛡️</span>
+                    <span id="user-display">Administrador</span>
+                </div>
+                <button onclick="handleLogout()" class="btn-logout">Cerrar Sesión</button>
+            </div>
+        </header>
+
+        <section id="admin-panel" class="admin-panel" style="display: none;">
+            <h3>🔓 Panel de Administración</h3>
+            <p>Crea nuevos OKRs y gestiona los catálogos.</p>
+            <div class="upload-container">
+                <button onclick="openCreateOKRModal()" class="btn-create-okr">
+                    ✨ Crear OKR
+                </button>
             </div>
         </section>
-    </main>
-    <script src="script.js"></script>
+
+        <section id="dynamic-filters" class="filters-container"></section>
+
+        <!-- Barra de Progreso Global -->
+        <div class="global-progress-container">
+            <div class="global-progress-wrapper">
+                <div class="global-info">
+                    <h3>Estatus Estratégico (Promedio de Objetivos)</h3>
+                    <span id="global-progress-text" class="progress-text">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div id="global-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Progreso Filtrada -->
+        <div class="global-progress-container">
+            <div class="global-progress-wrapper">
+                <div class="global-info">
+                    <h3>Estatus Filtrado</h3>
+                    <span id="filtered-progress-text" class="progress-text">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div id="filtered-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <main id="okr-list-container" class="okr-grid"></main>
+        <div id="pagination-controls" class="pagination-container"></div>
+    </div>
+
+    <!-- Modal para Crear OKR -->
+    <div id="create-okr-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✨ Crear Nuevo OKR</h2>
+                <button class="close-btn" onclick="confirmCloseCreateOKRModal()">&times;</button>
+            </div>
+            <form id="okr-form" onsubmit="handleCreateOKRSubmit(event)">
+                <!-- Sección: Objetivo -->
+                <div class="form-section">
+                    <h3>📋 Objetivo</h3>
+
+                    <div class="form-group">
+                        <label>¿Qué deseas hacer? *</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="objective-type" value="new" checked
+                                    onchange="toggleObjectiveMode()">
+                                Crear nuevo objetivo
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="objective-type" value="existing"
+                                    onchange="toggleObjectiveMode()">
+                                Agregar KR a objetivo existente
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Seleccionar objetivo existente -->
+                    <div id="existing-objective-section" style="display: none;">
+                        <div class="form-group">
+                            <label for="existing-objective">Seleccionar Objetivo *</label>
+                            <select id="existing-objective">
+                                <option value="">Seleccionar objetivo existente</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Crear nuevo objetivo -->
+                    <div id="new-objective-section">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="period">Período *</label>
+                                <select id="period" onchange="handleCatalogSelect('period')">
+                                    <option value="">Seleccionar período</option>
+                                </select>
+                                <input type="text" id="period-new" placeholder="Ej: Q1 2026"
+                                    style="display: none; margin-top: 8px;">
+                            </div>
+                            <div class="form-group">
+                                <label for="pilar">Pilar Estratégico *</label>
+                                <select id="pilar" onchange="handleCatalogSelect('pilar')">
+                                    <option value="">Seleccionar pilar</option>
+                                </select>
+                                <input type="text" id="pilar-new" placeholder="Ej: Crecimiento Rentable"
+                                    style="display: none; margin-top: 8px;">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="iniciativa">Iniciativa Estratégica *</label>
+                                <select id="iniciativa" onchange="handleCatalogSelect('iniciativa')">
+                                    <option value="">Seleccionar iniciativa</option>
+                                </select>
+                                <input type="text" id="iniciativa-new" placeholder="Ej: Desafío Prime"
+                                    style="display: none; margin-top: 8px;">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="objective-description">Descripción del Objetivo *</label>
+                            <textarea id="objective-description" rows="3"
+                                placeholder="Ej: Incrementar la satisfacción del cliente..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sección: Key Result -->
+                <div class="form-section">
+                    <h3>🎯 Key Result</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="area">Área *</label>
+                            <select id="area" onchange="handleCatalogSelect('area')">
+                                <option value="">Seleccionar área</option>
+                            </select>
+                            <input type="text" id="area-new" placeholder="Ej: AA&BB, Operaciones"
+                                style="display: none; margin-top: 8px;">
+                        </div>
+                        <div class="form-group">
+                            <label for="owner">Owner *</label>
+                            <select id="owner" onchange="handleCatalogSelect('owner')">
+                                <option value="">Seleccionar owner</option>
+                            </select>
+                            <input type="text" id="owner-new" placeholder="Ej: Juan Pérez"
+                                style="display: none; margin-top: 8px;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="code">Código *</label>
+                            <input type="text" id="code" required placeholder="Ej: KR1, KR2">
+                        </div>
+                        <div class="form-group">
+                            <label for="metric-name">Métrica *</label>
+                            <input type="text" id="metric-name" required placeholder="Ej: NPS, GAP, Venta">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="kr-description">Descripción del Key Result *</label>
+                        <textarea id="kr-description" rows="2" required
+                            placeholder="Ej: Lograr un percap de..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="data-type">Tipo de Dato *</label>
+                            <select id="data-type" required onchange="updateValuePlaceholders()">
+                                <option value="">Seleccionar tipo</option>
+                                <option value="money">Dinero ($)</option>
+                                <option value="percent">Porcentaje (%)</option>
+                                <option value="integer">Número Entero</option>
+                                <option value="time">Tiempo (HH:MM:SS)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="status">Estado *</label>
+                            <select id="status" required>
+                                <option value="">Seleccionar estado</option>
+                                <option value="Complete">Complete</option>
+                                <option value="On Track">On Track</option>
+                                <option value="No Initiated">No Initiated</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="baseline-value">Baseline Value *</label>
+                            <input type="text" id="baseline-value" required placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="target-value">Target Value *</label>
+                            <input type="text" id="target-value" required placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="current-value">Current Value *</label>
+                            <input type="text" id="current-value" required placeholder="50">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="notes-blockers">Notas / Blockers</label>
+                        <textarea id="notes-blockers" rows="2"
+                            placeholder="Opcional: Notas o bloqueadores..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="confirmCloseCreateOKRModal()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Guardar OKR</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Objetivo -->
+    <div id="edit-objective-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>📝 Editar Objetivo</h2>
+                <button class="close-btn" onclick="closeEditObjectiveModal()">&times;</button>
+            </div>
+            <form id="edit-objective-form" onsubmit="handleEditObjectiveSubmit(event)">
+                <input type="hidden" id="edit-objective-id">
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="edit-objective-description">Descripción del Objetivo *</label>
+                        <textarea id="edit-objective-description" rows="3" required
+                            placeholder="Descripción del objetivo..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-period">Período *</label>
+                            <select id="edit-period" required>
+                                <option value="">Seleccionar período</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-pilar">Pilar Estratégico *</label>
+                            <select id="edit-pilar" required>
+                                <option value="">Seleccionar pilar</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-iniciativa">Iniciativa Estratégica *</label>
+                            <select id="edit-iniciativa" required>
+                                <option value="">Seleccionar iniciativa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeEditObjectiveModal()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Editar Key Result -->
+    <div id="edit-kr-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2>🎯 Editar Key Result</h2>
+                <button class="close-btn" onclick="closeEditKRModal()">&times;</button>
+            </div>
+            <form id="edit-kr-form" onsubmit="handleEditKRSubmit(event)">
+                <input type="hidden" id="edit-kr-id">
+                <input type="hidden" id="edit-kr-objective-id">
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-kr-area">Área *</label>
+                            <select id="edit-kr-area" required>
+                                <option value="">Seleccionar área</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-kr-owner">Owner *</label>
+                            <select id="edit-kr-owner" required>
+                                <option value="">Seleccionar owner</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-kr-code">Código *</label>
+                            <input type="text" id="edit-kr-code" required placeholder="Ej: KR1">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-kr-metric">Métrica *</label>
+                            <input type="text" id="edit-kr-metric" required placeholder="Ej: NPS, GAP">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-kr-description">Descripción *</label>
+                        <textarea id="edit-kr-description" rows="2" required
+                            placeholder="Descripción del Key Result..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-kr-data-type">Tipo de Dato *</label>
+                            <select id="edit-kr-data-type" required onchange="updateEditKRPlaceholders()">
+                                <option value="">Seleccionar tipo</option>
+                                <option value="money">Dinero ($)</option>
+                                <option value="percent">Porcentaje (%)</option>
+                                <option value="integer">Número Entero</option>
+                                <option value="time">Tiempo (HH:MM:SS)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-kr-status">Estado *</label>
+                            <select id="edit-kr-status" required>
+                                <option value="">Seleccionar estado</option>
+                                <option value="COMPLETE">Complete</option>
+                                <option value="ON_TRACK">On Track</option>
+                                <option value="NO_INITIATED">No Initiated</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-kr-baseline">Baseline Value *</label>
+                            <input type="text" id="edit-kr-baseline" required placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-kr-target">Target Value *</label>
+                            <input type="text" id="edit-kr-target" required placeholder="100">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-kr-current">Current Value *</label>
+                            <input type="text" id="edit-kr-current" required placeholder="50">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-kr-notes">Notas / Blockers</label>
+                        <textarea id="edit-kr-notes" rows="2"
+                            placeholder="Opcional: Notas o bloqueadores..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeEditKRModal()">Cancelar</button>
+                    <button type="submit" class="btn-submit">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts (orden: dependencias → núcleo → UI → entrada) -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/okr-form.js"></script>
+    <script src="js/app.js"></script>
 </body>
+
 </html>
