@@ -8,7 +8,7 @@
 async function handleLogin() {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
-    toggleLoading(true);
+    toggleLoading(true, 'Iniciando sesión...');
     try {
         const response = await fetch(`${API_URL}/auth/login`, {
             method: 'POST',
@@ -85,9 +85,11 @@ function checkLocalSession() {
 /**
  * Controla la visibilidad del overlay de carga.
  */
-function toggleLoading(show) {
+function toggleLoading(show, message = 'Procesando datos...') {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) {
         overlay.style.display = show ? 'flex' : 'none';
+        const msgEl = document.getElementById('loading-message');
+        if (msgEl) msgEl.textContent = message;
     }
 }

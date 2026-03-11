@@ -2,7 +2,8 @@
 //  config.js — Constantes y estado global
 // ==========================================
 
-const API_URL = "http://localhost:8001"; // Cambia esto por tu URL de producción
+const API_URL = "https://okr-back-2-0.onrender.com";
+//const API_URL = "http://localhost:8001"; // Cambia esto por tu URL de producción
 
 // --- Estado global ---
 let rawSheetData = [];

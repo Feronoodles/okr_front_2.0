@@ -472,7 +472,7 @@ async function handleCreateOKRSubmit(event) {
         return;
     }
 
-    toggleLoading(true);
+    toggleLoading(true, 'Guardando OKR...');
 
     try {
         const mode = document.querySelector('input[name="objective-type"]:checked').value;
@@ -608,7 +608,7 @@ function populateEditSelect(selectId, data, selectedId, valueKey = 'id', textKey
  * Abre el modal de edición de un objetivo, cargando sus datos actuales.
  */
 async function openEditObjectiveModal(objectiveId) {
-    toggleLoading(true);
+    toggleLoading(true, 'Cargando objetivo...');
     try {
         const response = await apiFetch(`${API_URL}/objectives/${objectiveId}`);
         if (!response.ok) {
@@ -669,7 +669,7 @@ async function handleEditObjectiveSubmit(event) {
         return;
     }
 
-    toggleLoading(true);
+    toggleLoading(true, 'Actualizando objetivo...');
     try {
         const response = await apiFetch(`${API_URL}/objectives/${objectiveId}`, {
             method: 'PUT',
@@ -712,7 +712,7 @@ async function deleteObjective(objectiveId) {
         return;
     }
 
-    toggleLoading(true);
+    toggleLoading(true, 'Eliminando objetivo...');
     try {
         const response = await apiFetch(`${API_URL}/objectives/${objectiveId}`, {
             method: 'DELETE'
@@ -775,7 +775,7 @@ function updateEditKRPlaceholders() {
  * Abre el modal de edición de un Key Result, cargando sus datos actuales.
  */
 async function openEditKRModal(krId) {
-    toggleLoading(true);
+    toggleLoading(true, 'Cargando Key Result...');
     try {
         const response = await apiFetch(`${API_URL}/keyresults/${krId}`);
         if (!response.ok) {
@@ -868,7 +868,7 @@ async function handleEditKRSubmit(event) {
         return;
     }
 
-    toggleLoading(true);
+    toggleLoading(true, 'Actualizando Key Result...');
     try {
         const payload = {
             objectiveId: parseInt(objectiveId),
@@ -924,7 +924,7 @@ async function deleteKeyResult(krId) {
         return;
     }
 
-    toggleLoading(true);
+    toggleLoading(true, 'Eliminando Key Result...');
     try {
         const response = await apiFetch(`${API_URL}/keyresults/${krId}`, {
             method: 'DELETE'
